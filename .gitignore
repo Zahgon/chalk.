@@ -1,4 +1,3 @@
-node_modules
-yarn.lock
+/target
 coverage
-.nyc_output
+*.profraw

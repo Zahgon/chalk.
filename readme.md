@@ -10,8 +10,6 @@
 > Terminal string styling done right
 
 [![Coverage Status](https://codecov.io/gh/chalk/chalk/branch/main/graph/badge.svg)](https://codecov.io/gh/chalk/chalk)
-[![npm dependents](https://badgen.net/npm/dependents/chalk)](https://www.npmjs.com/package/chalk?activeTab=dependents)
-[![Downloads](https://badgen.net/npm/dt/chalk)](https://www.npmjs.com/package/chalk)
 
 ![](media/screenshot.png)
 
@@ -28,121 +26,127 @@
 - Ability to nest styles
 - [256/Truecolor color support](#256-and-truecolor-color-support)
 - Auto-detects color support
-- Doesn't extend `String.prototype`
 - Clean and focused
 - Actively maintained
-- [Used by ~115,000 packages](https://www.npmjs.com/browse/depended/chalk) as of July 4, 2024
 
 ## Install
 
 ```sh
-npm install chalk
+cargo add chalk
 ```
-
-**IMPORTANT:** Chalk 5 is ESM. If you want to use Chalk with TypeScript or a build tool, you will probably want to use Chalk 4 for now. [Read more.](https://github.com/chalk/chalk/releases/tag/v5.0.0)
 
 ## Usage
 
-```js
-import chalk from 'chalk';
+```rust
+use chalk::chalk;
 
-console.log(chalk.blue('Hello world!'));
+println!("{}", chalk().blue().paint("Hello world!"));
 ```
 
 Chalk comes with an easy to use composable API where you just chain and nest the styles you want.
 
-```js
-import chalk from 'chalk';
+```rust
+use chalk::chalk;
 
-const log = console.log;
+let chalk = chalk();
 
 // Combine styled and normal strings
-log(chalk.blue('Hello') + ' World' + chalk.red('!'));
+println!("{} World{}", chalk.blue().paint("Hello"), chalk.red().paint("!"));
 
 // Compose multiple styles using the chainable API
-log(chalk.blue.bgRed.bold('Hello world!'));
+println!("{}", chalk.blue().bg_red().bold().paint("Hello world!"));
 
 // Pass in multiple arguments
-log(chalk.blue('Hello', 'World!', 'Foo', 'bar', 'biz', 'baz'));
+println!("{}", chalk.blue().paint_all(["Hello", "World!", "Foo", "bar", "biz", "baz"]));
 
 // Nest styles
-log(chalk.red('Hello', chalk.underline.bgBlue('world') + '!'));
+println!("{}", chalk.red().paint(format!(
+	"Hello {}!",
+	chalk.underline().bg_blue().paint("world"),
+)));
 
 // Nest styles of the same type even (color, underline, background)
-log(chalk.green(
-	'I am a green line ' +
-	chalk.blue.underline.bold('with a blue substring') +
-	' that becomes green again!'
-));
+println!("{}", chalk.green().paint(format!(
+	"I am a green line {} that becomes green again!",
+	chalk.blue().underline().bold().paint("with a blue substring"),
+)));
 
-// ES2015 template literal
-log(`
-CPU: ${chalk.red('90%')}
-RAM: ${chalk.green('40%')}
-DISK: ${chalk.yellow('70%')}
-`);
+// Interpolation
+println!("
+CPU: {}
+RAM: {}
+DISK: {}
+",
+	chalk.red().paint("90%"),
+	chalk.green().paint("40%"),
+	chalk.yellow().paint("70%"),
+);
 
 // Use RGB colors in terminal emulators that support it.
-log(chalk.rgb(123, 45, 67).underline('Underlined reddish color'));
-log(chalk.hex('#DEADED').bold('Bold gray!'));
+println!("{}", chalk.rgb(123, 45, 67).underline().paint("Underlined reddish color"));
+println!("{}", chalk.hex("#DEADED").bold().paint("Bold gray!"));
 ```
 
 Easily define your own themes:
 
-```js
-import chalk from 'chalk';
+```rust
+use chalk::chalk;
 
-const error = chalk.bold.red;
-const warning = chalk.hex('#FFA500'); // Orange color
+let chalk = chalk();
 
-console.log(error('Error!'));
-console.log(warning('Warning!'));
-```
+let error = chalk.bold().red();
+let warning = chalk.hex("#FFA500"); // Orange color
 
-Take advantage of console.log [string substitution](https://nodejs.org/docs/latest/api/console.html#console_console_log_data_args):
-
-```js
-import chalk from 'chalk';
-
-const name = 'Sindre';
-console.log(chalk.green('Hello %s'), name);
-//=> 'Hello Sindre'
+println!("{}", error.paint("Error!"));
+println!("{}", warning.paint("Warning!"));
 ```
 
 ## API
 
-### chalk.`<style>[.<style>...](string, [string...])`
+### `chalk.<style>()[.<style>()...].paint(value)`
 
-Example: `chalk.red.bold.underline('Hello', 'world');`
+Example: `chalk.red().bold().underline().paint("Hello world");`
 
-Chain [styles](#styles) and call the last one as a method with a string argument. Order doesn't matter, and later styles take precedent in case of a conflict. This simply means that `chalk.red.yellow.green` is equivalent to `chalk.green`.
+Chain [styles](#styles) and call `paint` on the last one. Order doesn't matter, and later styles take precedent in case of a conflict. This simply means that `chalk.red().yellow().green()` is equivalent to `chalk.green()`.
 
-Multiple arguments will be separated by space.
+`paint` takes anything that implements [`Display`](https://doc.rust-lang.org/std/fmt/trait.Display.html), so it stringifies the value the same way `{}` would.
 
-### chalk.level
+`paint_all` takes an iterator of such values and separates them by a space:
+
+```rust
+use chalk::chalk;
+
+println!("{}", chalk().red().paint_all(["Hello", "world"]));
+```
+
+Calling `paint` on the instance itself applies no styling at all — it only stringifies, and `paint_all` only joins.
+
+### `chalk.level()` / `chalk.set_level(level)`
 
 Specifies the level of color support.
 
-Color support is automatically detected, but you can override it by setting the `level` property. You should however only do this in your own code as it applies globally to all Chalk consumers.
+Color support is automatically detected, but you can override it by setting the level. You should however only do this in your own code as `chalk()` is shared by all Chalk consumers in the process.
 
 If you need to change this in a reusable module, create a new instance:
 
-```js
-import {Chalk} from 'chalk';
+```rust
+use chalk::{Chalk, ColorSupportLevel};
 
-const customChalk = new Chalk({level: 0});
+let custom_chalk = Chalk::with_level(ColorSupportLevel::None);
 ```
 
-| Level | Description |
-| :---: | :--- |
-| `0` | All colors disabled |
-| `1` | Basic color support (16 colors) |
-| `2` | 256 color support |
-| `3` | Truecolor support (16 million colors) |
+| Level | `ColorSupportLevel` | Description |
+| :---: | :--- | :--- |
+| `0` | `None` | All colors disabled |
+| `1` | `Basic` | Basic color support (16 colors) |
+| `2` | `Ansi256` | 256 color support |
+| `3` | `TrueColor` | Truecolor support (16 million colors) |
 
-Both the `level` option and the `level` property throw for anything that is not an integer from 0 to 3. Omit the option, or pass `undefined`, to have the level detected instead.
+`ColorSupportLevel` makes an out-of-range level unrepresentable, so `set_level` cannot fail. Where the level comes from somewhere dynamic — a flag, a config file — `Chalk::try_with_level` and `try_set_level` take an `i64`, an `f64`, or a parsed string and return `Err(InvalidLevel)` for anything that is not an integer from 0 to 3. `Chalk::new`, and `Chalk::with_options` with `level: None`, have the level detected instead.
 
-### supportsColor
+Every style obtained from an instance reads and writes *that instance's* level, however deep the chain, so a style held in a binding keeps following the level it was made from.
+
+### `supports_color()`
 
 Detect whether the terminal [supports color](https://github.com/chalk/supports-color). Used internally and handled for you, but exposed for convenience.
 
@@ -150,27 +154,31 @@ Can be overridden by the user with the flags `--color` and `--no-color`. For sit
 
 Explicit 256/Truecolor mode can be enabled using the `--color=256` and `--color=16m` flags, respectively. These take precedence over a non-zero numeric `FORCE_COLOR`.
 
-### chalkStderr and supportsColorStderr
+### `chalk_stderr()` and `supports_color_stderr()`
 
-`chalkStderr` contains a separate instance configured with color support detected for `stderr` stream instead of `stdout`. Override rules from `supportsColor` apply to this too. `supportsColorStderr` is exposed for convenience.
+`chalk_stderr()` returns a separate instance configured with color support detected for the `stderr` stream instead of `stdout`. Override rules from `supports_color` apply to this too. `supports_color_stderr` is exposed for convenience.
 
-### modifierNames, foregroundColorNames, backgroundColorNames, underlineColorNames, and colorNames
+### `MODIFIER_NAMES`, `FOREGROUND_COLOR_NAMES`, `BACKGROUND_COLOR_NAMES`, `UNDERLINE_COLOR_NAMES`, and `COLOR_NAMES`
 
-All supported style strings are exposed as an array of strings for convenience. `colorNames` is the combination of `foregroundColorNames` and `backgroundColorNames`. Underline color names are kept separate in `underlineColorNames`.
+All supported style strings are exposed as a slice of strings for convenience. `COLOR_NAMES` is the combination of `FOREGROUND_COLOR_NAMES` and `BACKGROUND_COLOR_NAMES`. Underline color names are kept separate in `UNDERLINE_COLOR_NAMES`.
+
+These names are data rather than Rust identifiers, so they are spelled the way the styles have always been spelled — `underlineCurly`, not `underline_curly`. Pass one to `style_by_name` to look the style up at runtime.
 
 This can be useful if you wrap Chalk and need to validate input:
 
-```js
-import {modifierNames, foregroundColorNames} from 'chalk';
+```rust
+use chalk::{FOREGROUND_COLOR_NAMES, MODIFIER_NAMES};
 
-console.log(modifierNames.includes('bold'));
+println!("{}", MODIFIER_NAMES.contains(&"bold"));
 //=> true
 
-console.log(foregroundColorNames.includes('pink'));
+println!("{}", FOREGROUND_COLOR_NAMES.contains(&"pink"));
 //=> false
 ```
 
 ## Styles
+
+Every style below is a method spelled in snake case: `underlineCurly` is `underline_curly()`, `bgBlackBright` is `bg_black_bright()`.
 
 ### Modifiers
 
@@ -229,7 +237,7 @@ console.log(foregroundColorNames.includes('pink'));
 
 ### Underline colors
 
-The underline color is set independently of the text color, so the color is only visible when an underline style is also applied. For example, `chalk.underlineRed.underlineCurly('typo')` renders a red squiggle below otherwise unstyled text. *(Not widely supported)*
+The underline color is set independently of the text color, so the color is only visible when an underline style is also applied. For example, `chalk.underline_red().underline_curly().paint("typo")` renders a red squiggle below otherwise unstyled text. *(Not widely supported)*
 
 Unlike text and background colors, there is no basic 16-color form for underline colors, so they always use the 256-color escape. At level 1 they are downsampled to the first 16 palette entries rather than to a basic color code.
 
@@ -254,36 +262,46 @@ Unlike text and background colors, there is no basic 16-color form for underline
 
 Chalk supports 256 colors and [Truecolor](https://github.com/termstandard/colors) (16 million colors) on supported terminal apps.
 
-Colors are downsampled from 16 million RGB values to an ANSI color format that is supported by the terminal emulator (or by specifying `{level: n}` as a Chalk option). For example, Chalk configured to run at level 1 (basic color support) will downsample an RGB value of #FF0000 (red) to 91 (ANSI escape for bright red). The same applies to `ansi256` values, so `chalk.ansi256(196)` also becomes 91 at level 1.
+Colors are downsampled from 16 million RGB values to an ANSI color format that is supported by the terminal emulator (or by specifying a level as a Chalk option). For example, Chalk configured to run at level 1 (basic color support) will downsample an RGB value of #FF0000 (red) to 91 (ANSI escape for bright red). The same applies to `ansi256` values, so `chalk.ansi256(196)` also becomes 91 at level 1.
 
 Examples:
 
-- `chalk.hex('#DEADED').underline('Hello, world!')`
-- `chalk.rgb(15, 100, 204).inverse('Hello!')`
+- `chalk.hex("#DEADED").underline().paint("Hello, world!")`
+- `chalk.rgb(15, 100, 204).inverse().paint("Hello!")`
 
-Background versions of these models are prefixed with `bg` and the first letter of the model capitalized (e.g. `hex` for foreground colors and `bgHex` for background colors).
+Background versions of these models are prefixed with `bg_` (e.g. `hex` for foreground colors and `bg_hex` for background colors).
 
-- `chalk.bgHex('#DEADED').underline('Hello, world!')`
-- `chalk.bgRgb(15, 100, 204).inverse('Hello!')`
+- `chalk.bg_hex("#DEADED").underline().paint("Hello, world!")`
+- `chalk.bg_rgb(15, 100, 204).inverse().paint("Hello!")`
 
-Underline versions are prefixed with `underline` in the same way (e.g. `hex` for foreground colors and `underlineHex` for underline colors). They only take effect when an underline style is also applied.
+Underline versions are prefixed with `underline_` in the same way (e.g. `hex` for foreground colors and `underline_hex` for underline colors). They only take effect when an underline style is also applied.
 
-- `chalk.underlineHex('#DEADED').underlineCurly('Hello, world!')`
-- `chalk.underlineRgb(15, 100, 204).underline('Hello!')`
+- `chalk.underline_hex("#DEADED").underline_curly().paint("Hello, world!")`
+- `chalk.underline_rgb(15, 100, 204).underline().paint("Hello!")`
 
 The following color models can be used:
 
-- [`rgb`](https://en.wikipedia.org/wiki/RGB_color_model) - Example: `chalk.rgb(255, 136, 0).bold('Orange!')`
-- [`hex`](https://en.wikipedia.org/wiki/Web_colors#Hex_triplet) - Example: `chalk.hex('#FF8800').bold('Orange!')`
-- [`ansi256`](https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit) - Example: `chalk.bgAnsi256(194)('Honeydew, more or less')`
+- [`rgb`](https://en.wikipedia.org/wiki/RGB_color_model) - Example: `chalk.rgb(255, 136, 0).bold().paint("Orange!")`
+- [`hex`](https://en.wikipedia.org/wiki/Web_colors#Hex_triplet) - Example: `chalk.hex("#FF8800").bold().paint("Orange!")`
+- [`ansi256`](https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit) - Example: `chalk.bg_ansi256(194).paint("Honeydew, more or less")`
 
 ## Browser support
 
-Since Chrome 69, ANSI escape codes are natively supported in the developer console.
+The JavaScript package ships a browser build that detects Chrome's native support for ANSI escape codes in the developer console. That build has no counterpart here: this crate detects a terminal, not a browser.
 
 ## Windows
 
 If you're on Windows, do yourself a favor and use [Windows Terminal](https://github.com/microsoft/terminal) instead of `cmd.exe`.
+
+## Development
+
+```sh
+cargo test                # run the test suite
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo bench               # run the benchmarks
+cargo run --example rainbow
+```
 
 ## FAQ
 
@@ -292,8 +310,6 @@ If you're on Windows, do yourself a favor and use [Windows Terminal](https://git
 Chalk may be larger, but there is a reason for that. It offers a more user-friendly API, well-documented types, supports millions of colors, and covers edge cases that smaller alternatives miss. Chalk is mature, reliable, and built to last.
 
 But beyond the technical aspects, there's something more critical: trust and long-term maintenance. I have been active in open source for over a decade, and I'm committed to keeping Chalk maintained. Smaller packages might seem appealing now, but there's no guarantee they will be around for the long term, or that they won't become malicious over time.
-
-Chalk is also likely already in your dependency tree (since 100K+ packages depend on it), so switching won’t save space—in fact, it might increase it. npm deduplicates dependencies, so multiple Chalk instances turn into one, but adding another package alongside it will increase your overall size.
 
 If the goal is to clean up the ecosystem, switching away from Chalk won’t even make a dent. The real problem lies with packages that have very deep dependency trees (for example, those including a lot of polyfills). Chalk has no dependencies. It's better to focus on impactful changes rather than minor optimizations.
 
